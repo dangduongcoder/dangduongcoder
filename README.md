@@ -1,5 +1,5 @@
 <h1 align="center">Hi 👋, I'm Truong Dang Duong</h1>
-<h3 align="center">A junior frontend developer from Ha Noi, Viet Nam</h3>
+<h3 align="center">...</h3>
 <hr>
 <h3 align="left"></h3>
 <img align="right" alt="Coding" width="400" src="https://raw.githubusercontent.com/dangduongcoder/dangduongcoder/main/TechSupport.png" style="vertical-align:middle;margin:0px 50px">
