@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upload & Crop Config</title>
+    <link href="/vendor/cropper.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="/vendor/css/bootstrap.min.css">
+
+    <style>
+        img {
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h2 class="text-center">Tạo Config</h2>
+        <div class="form-control text-center mt-4">
+            <div class="px-4 text-center">
+                <input class="mt-4" type="file" id="upload" accept="image/*"><br><br>
+            </div>
+            <div class="">
+                <img id="image" style="display:none;" alt="Image for cropping"><br><br>
+            </div>
+<!--            <button id="saveConfig" style="display:none;">Save Config</button>-->
+            <button id="saveConfig" style="display:none;" type="button" class="btn btn-success">Lưu Config</button>
+
+            <br><br>
+        </div>
+
+    </div>
+
+<script src="/vendor/cropper.min.js"></script>
+<script>
+
+    function generateFileName() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0'); // Tháng bắt đầu từ 0, nên +1
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+
+        // Kết hợp thành chuỗi theo định dạng mong muốn
+        const timestamp = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+        return `${timestamp}`;
+    }
+
+
+
+    let cropper;
+    const image = document.getElementById('image');
+
+    document.getElementById('upload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+
+        reader.onload = function(event) {
+            image.src = event.target.result;
+            image.style.display = 'block';
+
+            if (cropper) {
+                cropper.destroy();
+            }
+
+            cropper = new Cropper(image, {
+                viewMode: 1,
+            });
+
+            document.getElementById('saveConfig').style.display = 'inline-block';
+        }
+
+        reader.readAsDataURL(file);
+    });
+
+    document.getElementById('saveConfig').addEventListener('click', function() {
+        const cropData = cropper.getData();
+        const imageData = cropper.getImageData();
+
+        const config = {
+            originalWidth: imageData.naturalWidth,
+            originalHeight: imageData.naturalHeight,
+            cropX: cropData.x,
+            cropY: cropData.y,
+            cropWidth: cropData.width,
+            cropHeight: cropData.height
+        };
+
+        const configJSON = JSON.stringify(config);
+        const blob = new Blob([configJSON], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `crop-config-${generateFileName()}.json`;
+        a.click();
+    });
+</script>
+</body>
+</html>

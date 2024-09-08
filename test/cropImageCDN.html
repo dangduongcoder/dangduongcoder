@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <title>Crop Images with Config</title>
+</head>
+
+<style>
+    .previewImages {
+        position: relative;
+        width: 100%;
+        margin-top: 20px;
+    }
+
+    #configUpload, #imageUpload, form-control {
+        position: relative;
+        max-width: 100%;
+
+    }
+</style>
+
+<body>
+
+
+
+    <div class="container">
+        <h1 class="text-center mt-4">Cắt ảnh với Config</h1>
+
+        <div class="form-control text-center mt-4">
+            <label for="configUpload">Upload Config (JSON): </label>
+            <input type="file" id="configUpload" accept=".json,.txt"><br><br>
+
+            <label for="imageUpload">Upload Images (after config): </label>
+            <input type="file" id="imageUpload" multiple accept="image/*" disabled><br><br>
+
+            <div id="warningMessage" style="color:red;"></div><br>
+
+            <button type="button" class="btn btn-success" id="cropImages" disabled>Crop Images</button>
+            <button type="button" class="btn btn-primary" id="downloadCroppedImages" style="display:none;">Tải về ảnh đã cắt</button>
+
+            <canvas id="canvas" style="display:none;"></canvas>
+            <div id="croppedImages"></div>
+        </div>
+
+
+    </div>
+
+<!--<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+
+<script>
+
+    function generateFileName() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0'); // Tháng bắt đầu từ 0, nên +1
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+
+        const timestamp = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+        return `${timestamp}`;
+    }
+
+
+
+    let config;
+
+    document.getElementById('configUpload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            config = JSON.parse(event.target.result);
+
+            document.getElementById('imageUpload').disabled = false;
+            document.getElementById('cropImages').disabled = false;
+        };
+        reader.readAsText(file);
+    });
+
+    document.getElementById('imageUpload').addEventListener('change', function(e) {
+        const files = e.target.files;
+        const warningMessage = document.getElementById('warningMessage');
+        warningMessage.innerHTML = ''; // Clear warnings
+
+        Array.from(files).forEach((file, index) => {
+            const img = new Image();
+            const reader = new FileReader();
+
+            reader.onload = function(event) {
+                img.src = event.target.result;
+                img.onload = function() {
+                    const imgWidth = img.naturalWidth;
+                    const imgHeight = img.naturalHeight;
+
+                    if (imgWidth !== config.originalWidth || imgHeight !== config.originalHeight) {
+                        warningMessage.innerHTML += `Cảnh báo: Ảnh ${file.name} có kích thước (${imgWidth}x${imgHeight}) khác với config (${config.originalWidth}x${config.originalHeight}).<br>`;
+                    }
+                };
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+
+    document.getElementById('cropImages').addEventListener('click', function() {
+        const files = document.getElementById('imageUpload').files;
+        const croppedImagesContainer = document.getElementById('croppedImages');
+        croppedImagesContainer.innerHTML = ''; // Xóa hình ảnh cũ
+        const zip = new JSZip();
+
+        Array.from(files).forEach((file, index) => {
+            const reader = new FileReader();
+            const img = new Image();
+
+            reader.onload = function(event) {
+                img.src = event.target.result;
+                img.onload = function() {
+                    const canvas = document.getElementById('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    const scaleX = img.naturalWidth / config.originalWidth;
+                    const scaleY = img.naturalHeight / config.originalHeight;
+
+                    const cropX = config.cropX * scaleX;
+                    const cropY = config.cropY * scaleY;
+                    const cropWidth = config.cropWidth * scaleX;
+                    const cropHeight = config.cropHeight * scaleY;
+
+                    canvas.width = cropWidth;
+                    canvas.height = cropHeight;
+                    ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+                    const croppedDataURL = canvas.toDataURL();
+                    const croppedImgElement = document.createElement('img');
+                    croppedImgElement.classList.add('previewImages')
+                    croppedImgElement.src = croppedDataURL;
+                    croppedImagesContainer.appendChild(croppedImgElement);
+
+                    const base64Data = croppedDataURL.split(',')[1];
+                    zip.file(`cropped-image-${index + 1}.png`, base64Data, { base64: true });
+
+                    if (index === files.length - 1) {
+                        // Hiển thị nút "Tải về" khi quá trình cắt ảnh hoàn tất
+                        document.getElementById('downloadCroppedImages').style.display = 'inline-block';
+
+                        document.getElementById('downloadCroppedImages').addEventListener('click', function() {
+                            if (files.length > 1) {
+                                zip.generateAsync({ type: 'blob' }).then(function(content) {
+                                    const a = document.createElement('a');
+                                    a.href = URL.createObjectURL(content);
+                                    a.download = `cropped-images-${generateFileName()}.zip`;
+                                    a.click();
+                                });
+                            } else {
+                                const a = document.createElement('a');
+                                a.href = croppedDataURL;
+                                a.download = `cropped-image-${generateFileName()}.png`;
+                                a.click();
+                            }
+                        });
+                    }
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+</script>
+</body>
+</html>
