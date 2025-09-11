@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🔔 Quản Lý Thông Báo</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            overscroll-behavior: none;
+        }
+        .form-input {
+            border: 2px solid transparent;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-input:focus {
+            border-color: #3b82f6;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .btn {
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .notification-item {
+            transition: all 0.2s ease;
+        }
+        .notification-item:active {
+            background-color: #f0f9ff !important;
+            transform: scale(0.99);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 p-3 sm:p-4">
+
+<!-- 🧪 Biến DEVMODE để test trên trình duyệt -->
+<script>
+    const DEVMODE = true; // ⚠️ Đặt thành false khi tích hợp vào WKWebView trong Swift
+    let notifications = []; // Danh sách thông báo (sẽ được Swift ghi đè nếu không phải DEVMODE)
+
+    // Hàm sinh UUID đơn giản
+    function generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+</script>
+
+<div class="max-w-lg mx-auto">
+
+    <!-- Header -->
+    <div class="text-center mb-6 pt-4">
+        <h1 class="text-2xl sm:text-3xl font-bold text-blue-600">🔔 Quản Lý Thông Báo</h1>
+        <p class="text-gray-500 text-sm mt-1">Tạo và quản lý thông báo cục bộ dễ dàng</p>
+    </div>
+
+    <!-- Form Thêm/Sửa -->
+    <div id="notificationForm" class="bg-white p-4 sm:p-6 rounded-2xl shadow-md mb-6 border border-gray-100">
+        <h2 class="text-lg sm:text-xl font-semibold mb-4 text-gray-700 flex items-center" id="formTitle">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Thêm Thông Báo Mới
+        </h2>
+
+        <input type="hidden" id="editId">
+
+        <!-- Loại thông báo -->
+        <div class="mb-4">
+            <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">Loại</label>
+            <select id="notifyType" class="form-input w-full p-3 text-base border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white">
+                <option value="delay">⏳ Đếm ngược thời gian</option>
+                <option value="specific">📅 Thời gian cụ thể</option>
+            </select>
+        </div>
+
+        <!-- Delay Section -->
+        <div id="delaySection" class="mb-4">
+            <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">Thời gian (giây)</label>
+            <input type="number" id="delayValue" placeholder="Ví dụ: 300" min="1" value="300" class="form-input w-full p-3 text-base border border-gray-300 rounded-xl">
+        </div>
+
+        <!-- Specific Section -->
+        <div id="specificSection" class="mb-4 hidden">
+            <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">Thời gian cụ thể</label>
+            <input type="datetime-local" id="specificDateTime" class="form-input w-full p-3 text-base border border-gray-300 rounded-xl">
+        </div>
+
+        <!-- Tiêu đề -->
+        <div class="mb-4">
+            <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">Tiêu đề</label>
+            <input type="text" id="notifyTitle" placeholder="Ví dụ: Uống nước!" value="Nhắc nhở" class="form-input w-full p-3 text-base border border-gray-300 rounded-xl">
+        </div>
+
+        <!-- Nội dung -->
+        <div class="mb-6">
+            <label class="block text-xs font-medium text-gray-600 uppercase tracking-wide mb-2">Nội dung</label>
+            <textarea id="notifyBody" rows="3" placeholder="Chi tiết thông báo..." class="form-input w-full p-3 text-base border border-gray-300 rounded-xl resize-none">Đừng quên hoàn thành nhiệm vụ!</textarea>
+        </div>
+
+        <!-- Nút hành động -->
+        <div class="flex flex-col sm:flex-row gap-3">
+            <button onclick="saveNotification()" class="btn bg-blue-600 hover:bg-blue-700 text-white flex-1 text-base">
+                💾 Lưu & Lên Lịch
+            </button>
+            <button onclick="resetForm()" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 flex-1 text-base">
+                🧹 Đặt lại
+            </button>
+        </div>
+    </div>
+
+    <!-- Danh sách thông báo -->
+    <div class="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+        <div class="p-4 border-b border-gray-100">
+            <h2 class="text-lg font-semibold text-gray-700 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Danh Sách Thông Báo
+            </h2>
+        </div>
+        <div id="notificationList" class="divide-y divide-gray-100">
+            <!-- Sẽ được render bởi JS -->
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Khởi tạo
+    document.addEventListener('DOMContentLoaded', function() {
+        setupTypeToggle();
+        setDefaultDateTime();
+        if (DEVMODE) loadSampleData();
+        renderList();
+    });
+
+    function setupTypeToggle() {
+        document.getElementById('notifyType').addEventListener('change', function() {
+            const isDelay = this.value === 'delay';
+            document.getElementById('delaySection').classList.toggle('hidden', !isDelay);
+            document.getElementById('specificSection').classList.toggle('hidden', isDelay);
+        });
+    }
+
+    function setDefaultDateTime() {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(9, 0, 0, 0);
+        document.getElementById('specificDateTime').value = formatDateTimeLocal(tomorrow);
+    }
+
+    function formatDateTimeLocal(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hour = String(date.getHours()).padStart(2, '0');
+        const minute = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hour}:${minute}`;
+    }
+
+    function formatReadableDateTime(isoString) {
+        if (!isoString) return '';
+        const datePart = isoString.split(' ')[0];
+        const timePart = isoString.split(' ')[1]?.split('+')[0] || '';
+        return `${datePart} ${timePart}`;
+    }
+
+    function loadSampleData() {
+        notifications = [
+            {
+                id: "sample1",
+                type: "delay",
+                title: "⏰ Uống nước",
+                body: "Đã 2 tiếng rồi, uống nước đi!",
+                delaySeconds: 300,
+                scheduled: true
+            },
+            {
+                id: "sample2",
+                type: "specific",
+                title: "📅 Họp team",
+                body: "Meeting với team iOS",
+                dateTime: "2026-02-14 10:00:00+07:00",
+                scheduled: true
+            }
+        ];
+    }
+
+    function renderList() {
+        const container = document.getElementById('notificationList');
+        if (notifications.length === 0) {
+            container.innerHTML = `
+                <div class="p-6 text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5v-5zM9 7H4l5-5v5z" />
+                    </svg>
+                    <p class="text-gray-500">Chưa có thông báo nào</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = '';
+        notifications.forEach(notify => {
+            let timeDisplay = '⏰ Chưa xác định';
+            if (notify.type === 'delay') {
+                const mins = Math.floor(notify.delaySeconds / 60);
+                const secs = notify.delaySeconds % 60;
+                timeDisplay = `Sau ${mins > 0 ? mins + ' phút ' : ''}${secs} giây`;
+            } else if (notify.dateTime) {
+                timeDisplay = `Vào lúc: ${formatReadableDateTime(notify.dateTime)}`;
+            }
+
+            const item = document.createElement('div');
+            item.className = 'notification-item p-4 active:bg-blue-50';
+            item.innerHTML = `
+                <div class="flex items-start justify-between">
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-semibold text-gray-800 text-base leading-tight">${notify.title}</h3>
+                        <p class="text-gray-600 text-sm mt-1 line-clamp-2">${notify.body}</p>
+                        <p class="text-xs text-gray-500 mt-2">${timeDisplay}</p>
+                        <span class="inline-block px-2 py-1 text-xs rounded-full mt-2 ${
+                            notify.scheduled ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }">${notify.scheduled ? '✅ Đã lên lịch' : '⏳ Chưa lên lịch'}</span>
+                    </div>
+                    <div class="flex flex-col ml-3 flex-shrink-0">
+                        <button onclick="editNotification('${notify.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg mb-1 active:bg-blue-100" title="Sửa">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                        </button>
+                        <button onclick="deleteNotification('${notify.id}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg active:bg-red-100" title="Xóa">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    function resetForm() {
+        document.getElementById('formTitle').innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Thêm Thông Báo Mới
+        `;
+        document.getElementById('editId').value = '';
+        document.getElementById('notifyTitle').value = 'Nhắc nhở';
+        document.getElementById('notifyBody').value = 'Đừng quên hoàn thành nhiệm vụ!';
+        document.getElementById('notifyType').value = 'delay';
+        document.getElementById('delayValue').value = 300;
+        setDefaultDateTime();
+        document.getElementById('delaySection').classList.remove('hidden');
+        document.getElementById('specificSection').classList.add('hidden');
+    }
+
+    function saveNotification() {
+        const id = document.getElementById('editId').value || generateUUID();
+        const type = document.getElementById('notifyType').value;
+        const title = document.getElementById('notifyTitle').value.trim();
+        const body = document.getElementById('notifyBody').value.trim();
+
+        if (!title) {
+            alert('❗ Vui lòng nhập tiêu đề!');
+            return;
+        }
+
+        let notification = { id, title, body, type, scheduled: false };
+
+        if (type === 'delay') {
+            const delay = parseInt(document.getElementById('delayValue').value);
+            if (isNaN(delay) || delay <= 0) {
+                alert('❗ Vui lòng nhập số giây > 0');
+                return;
+            }
+            notification.delaySeconds = delay;
+        } else {
+            const dateTimeLocal = document.getElementById('specificDateTime').value;
+            if (!dateTimeLocal) {
+                alert('❗ Vui lòng chọn thời gian cụ thể');
+                return;
+            }
+            notification.dateTime = dateTimeLocal.replace('T', ' ') + ':00+07:00';
+        }
+
+        if (DEVMODE) {
+            const isEdit = notifications.some(n => n.id === id);
+            if (isEdit) {
+                const index = notifications.findIndex(n => n.id === id);
+                notifications[index] = notification;
+            } else {
+                notifications.push(notification);
+            }
+            renderList();
+            alert('✅ Đã lưu (DEVMODE)');
+        } else {
+            const action = document.getElementById('editId').value ? "update" : "schedule";
+            notification.action = action;
+
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.notificationHandler) {
+                window.webkit.messageHandlers.notificationHandler.postMessage(notification);
+                // Swift sẽ gọi lại updateNotificationListFromSwift(...) sau khi xử lý
+            } else {
+                alert('❌ Không thể kết nối với ứng dụng iOS!');
+            }
+        }
+
+        resetForm();
+    }
+
+    function editNotification(id) {
+        const notify = notifications.find(n => n.id === id);
+        if (!notify) return;
+
+        document.getElementById('formTitle').innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Sửa Thông Báo
+        `;
+        document.getElementById('editId').value = id;
+        document.getElementById('notifyTitle').value = notify.title;
+        document.getElementById('notifyBody').value = notify.body;
+        document.getElementById('notifyType').value = notify.type;
+
+        if (notify.type === 'delay') {
+            document.getElementById('delayValue').value = notify.delaySeconds;
+            document.getElementById('delaySection').classList.remove('hidden');
+            document.getElementById('specificSection').classList.add('hidden');
+        } else if (notify.dateTime) {
+            const dt = notify.dateTime.split(' ')[0] + 'T' + notify.dateTime.split(' ')[1].split(':')[0] + ':' + notify.dateTime.split(' ')[1].split(':')[1];
+            document.getElementById('specificDateTime').value = dt;
+            document.getElementById('delaySection').classList.add('hidden');
+            document.getElementById('specificSection').classList.remove('hidden');
+        }
+    }
+
+    function deleteNotification(id) {
+        if (confirm('🗑️ Bạn có chắc muốn xóa thông báo này?')) {
+            if (DEVMODE) {
+                notifications = notifications.filter(n => n.id !== id);
+                renderList();
+                console.log('🗑️ [DEVMODE] Đã xóa ID:', id);
+            } else {
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.notificationHandler) {
+                    window.webkit.messageHandlers.notificationHandler.postMessage({
+                        action: "delete",
+                        id: id
+                    });
+                    // Swift sẽ tự đồng bộ lại danh sách
+                } else {
+                    alert('❌ Không thể kết nối với ứng dụng iOS!');
+                }
+            }
+        }
+    }
+
+    // 🆕 HÀM SWIFT SẼ GỌI ĐỂ ĐẨY DANH SÁCH LÊN WEB
+    function updateNotificationListFromSwift(updatedList) {
+        console.log('🔄 Nhận danh sách từ Swift:', updatedList);
+        notifications = updatedList || [];
+        renderList();
+    }
+</script>
+
+</body>
+</html>
